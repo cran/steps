@@ -1,8 +1,8 @@
 Package: steps
 Type: Package
 Title: Spatially- and Temporally-Explicit Population Simulator
-Version: 0.2.1
-Date: 2019-04-02
+Version: 1.0.0
+Date: 2020-01-14
 Authors@R: c(
   person("Casey", "Visintin", email = "casey.visintin@unimelb.edu.au",
   role=c("aut", "cre")),
@@ -14,22 +14,22 @@ Authors@R: c(
   role = "ctb")
   )
 Maintainer: Casey Visintin <casey.visintin@unimelb.edu.au>
-Description: Software to simulate population dynamics across space and time.
+Description: Software to simulate population change across space and time.
 Depends: R (>= 3.2.2)
 License: GPL (>= 2)
 Imports: Rcpp, raster, future, future.apply, rasterVis, viridisLite,
         memuse
 LinkingTo: Rcpp
-RoxygenNote: 6.1.1
+RoxygenNote: 7.0.2
 Suggests: testthat, fields, knitr, rmarkdown, foreach
 VignetteBuilder: knitr
 Encoding: UTF-8
 LazyData: true
 NeedsCompilation: yes
-Packaged: 2019-04-02 01:54:56 UTC; casey
+Packaged: 2020-01-21 00:44:55 UTC; casey
 Author: Casey Visintin [aut, cre],
   Nick Golding [ctb],
   Skipton Woolley [ctb],
   John Baumgartner [ctb]
 Repository: CRAN
-Date/Publication: 2019-04-02 11:30:03 UTC
+Date/Publication: 2020-01-21 13:30:02 UTC

@@ -1,22 +1,37 @@
 #' Create a growth transition function
 #'
-#' @description A growth transition function defines how spatial objects or custom functions influence
-#' survival and fecundity. A user may select from built-in functions or provide a custom written function
-#' to modify survival and fecundity throughout a simulation.
+#' A growth transition function defines how spatial objects or custom functions influence
+#' survival and fecundity. Two built-in functions are provided for the user to select, however,
+#' a user may also provide custom written functions to modify survival and fecundity throughout
+#' a simulation. Please see the tutorial vignette titled "Creating custom *steps* functions"
+#' for information on how to write custom functions for use in simulations.
+#' 
+#' 
+#' @name transition_function
+#' @seealso
+#' \itemize{
+#'   \item{\link[steps]{modified_transition} to use rasters to modify survival and fecundity}
+#'   \item{\link[steps]{competition_density} to use relationship to carrying capacity to modify
+#'   survival and fecundity}
+#'   }
+NULL
+
+#' Spatially-explicit transition function
 #' 
 #' In the built-in \code{modified_transition function}, the values of fecundity and survival
 #' in local cell-based transition matrices are multiplied by values in the named spatial objects
 #' for each cell. The spatial objects can be rasters that are stored in the landscape object.
 #' 
-#' A commonly used \code{competition_density} dependence function is also provided in the software for
-#' the user to select, however, a user may also provide other custom written density dependence functions.
-#' 
-#' @rdname transition_function
+#' The behaviour of the function is to modify any non-zero values in the first row by
+#' the "fecundity_layer" and non-zero values in rows other than the first by the "survival_layer".
+#' This is irrespective of the type of matrix or any assumptions made by the user in creating
+#' the transition matrix. For example, if the transition matrix values include both the
+#' probabilities of surviving AND growing into the next stage, these can NOT be modified
+#' individually. This operation would require the use of a custom function - see the "Creating
+#' custom *steps* functions" vignette for more information.
 #'
-#' @param transition_matrix a symmetrical age-based (Leslie) or stage-based population
-#'   structure matrix.
-#' @param survival_layer the name of a spatial layer in the landscape object used to modify survival values.
-#' @param fecundity_layer the name of a spatial layer in the landscape object used to modify fecundity values.
+#' @param survival_layer the name of a spatial layer in the landscape object used to modify survival values (i.e. non-zero values in the first row).
+#' @param fecundity_layer the name of a spatial layer in the landscape object used to modify fecundity values (i.e. non-zero values in rows other than the first).
 #' 
 #' @return An object of class \code{transition_function}
 #' 
@@ -24,25 +39,30 @@
 #'
 #' @examples
 #' 
-#' test_mod_transition <- modified_transition(egk_mat)
+#' # Vital rates (survival and fecundity) modified based on habitat suitability.
+#' 
+#' \dontrun{
+#' mod_fun <- modified_transition(survival_layer = "suitability", fecundity_layer = "suitability")
+#' 
+#' ls <- landscape(population = egk_pop, suitability = egk_hab, carrying_capacity = NULL)
+#' 
+#' pd <- population_dynamics(change = growth(egk_mat, transition_function = mod_fun))
+#' 
+#' simulation(landscape = ls, population_dynamics = pd, habitat_dynamics = NULL, timesteps = 20)
+#' }
 
-modified_transition <- function(transition_matrix,
-                                survival_layer = NULL,
+modified_transition <- function(survival_layer = NULL,
                                 fecundity_layer = NULL) {
   
-  idx <- which(transition_matrix != 0)
-  is_recruitment <- upper.tri(transition_matrix)[idx]
-  
-  surv_vals <- transition_matrix[idx[!is_recruitment]]
-  fec_vals <- transition_matrix[idx[is_recruitment]]
-  
-  dim <- nrow(transition_matrix)
+  fun <- function (transition_array, landscape, timestep) {
+    
+    transition_matrix <- transition_array[, , 1]
+    idx <- which(transition_matrix != 0)
+    is_recruitment <- upper.tri(transition_matrix)[idx]
+    
+    array_length <- dim(transition_array)[3]
 
-  fun <- function (landscape, timestep) {
-    
-    # pull out or create survival/fecundity multipliers
     cell_idx <- which(!is.na(raster::getValues(landscape$population[[1]])))
-    
     
     if (is.null(survival_layer)) {
       surv_mult <- rep(1, length(cell_idx))
@@ -64,23 +84,11 @@ modified_transition <- function(transition_matrix,
       }
     }
     
-    
-    # get per-cell versions of fecundity and survival values
-    survs <- kronecker(surv_mult, t(surv_vals), "*")
-    fecs <- kronecker(fec_mult, t(fec_vals), "*")
-    
-    # empty transition array to fill
-    n_cells <- length(cell_idx)
-    transition_array <- array(0, c(dim, dim, n_cells))
-    
-    # convert index from matrix to array
-    addition <- dim ^ 2 * (seq_len(n_cells) - 1)
-    idx_full <- as.numeric(outer(idx, addition, FUN = "+"))
-    
-    # put the surv/fec values back in (is_recruitment is recycled to match length)
-    transition_array[idx_full[!is_recruitment]] <- survs
-    transition_array[idx_full[is_recruitment]] <- fecs
-    
+    for (i in seq_len(array_length)) {
+      transition_array[, , i][idx[!is_recruitment]] <- transition_array[, , i][idx[!is_recruitment]] * surv_mult[i]
+      transition_array[, , i][idx[is_recruitment]] <- transition_array[, , i][idx[is_recruitment]] * fec_mult[i]
+    }
+
     transition_array
     
   }
@@ -89,30 +97,43 @@ modified_transition <- function(transition_matrix,
   
 }
 
-
-#' @rdname transition_function
+#' Competition density function
 #'
+#' Adjusts the life-stage transition matrix in each cell based on the carrying capacity in the cell and
+#' a density dependence function - default is Beverton-Holt. The user may specify which life-stages are 
+#' affected by density dependence. If \code{R_max} is not provided this is calculated from the local cell-based
+#' transition matrices internally. By providing initial stable age distribution values, performance can be
+#' increased as the function internally calculates these values through optimisation.
+#' 
 #' @param stages which life-stages contribute to density dependence - default is all
 #' @param mask a matrix of boolean values (TRUE/FALSE), equal in dimensions to the life-stage transition matrix
 #' and specifying which vital rates (i.e. survival and fecundity) are to be modified by the function
 #' @param R_max optional value of maximum growth rate (lambda) if known
-#' @param initial_stages optional vector of stable age distributions if known
+#' @param stable_age optional vector of stable age distributions if known
 #' 
 #' @export
 #'
 #' @examples
 #' 
-#' test_comp_transition <- competition_density(egk_mat)
+#' # Vital rates (survival and fecundity) modified based on approach to carrying capacity
+#' # by the 2nd and 3rd life stages.
+#' 
+#' \dontrun{
+#' mod_fun <- competition_density(stages = c(2, 3))
+#' 
+#' ls <- landscape(population = egk_pop, suitability = NULL, carrying_capacity = egk_k)
+#' 
+#' pd <- population_dynamics(change = growth(egk_mat, transition_function = mod_fun))
+#' 
+#' simulation(landscape = ls, population_dynamics = pd, habitat_dynamics = NULL, timesteps = 20)
+#' }
 
-competition_density <- function(transition_matrix,
-                                stages = NULL,
+competition_density <- function(stages = NULL,
                                 mask = NULL,
                                 R_max = NULL,
-                                initial_stages = NULL) {
-  
-  dim <- nrow(transition_matrix)
+                                stable_age = NULL) {
 
-  fun <- function (landscape, timestep) {
+  fun <- function (transition_array, landscape, timestep) {
 
     # get metrics and constructor info
     cell_idx <- which(!is.na(raster::getValues(landscape$population[[1]])))
@@ -127,22 +148,24 @@ competition_density <- function(transition_matrix,
     K <- raster::extract(cc, cell_idx)
     
     if (!is.null(stages)) {
-      N <- rowSums(population[, stages])
+      if (length(stages) == 1) {
+        N <- population[, stages]
+      } else {
+        N <- rowSums(population[, stages])
+      }
     } else {
       N <- rowSums(population)
     }
 
-    # initialise an array for all of the populations
-    transition_array <- array(transition_matrix, dim = c(dim, dim, n_cells))
-    
-    cells_over <- which(N - K > 0)
-    
-    # modify life-stage transition matrix and add to array
-    for (i in cells_over) {
+    target_cells <- which(N - K != 0 & N != 0)
+
+    # modify life-stage transition array
+    for (i in target_cells) {
       transition_array[, , i] <- density_modified_transition(N = N[i],
                                                              K = K[i],
-                                                             transition_matrix = transition_matrix,
-                                                             mask = mask)
+                                                             transition_matrix = transition_array[, , i],
+                                                             mask = mask,
+                                                             R_max = R_max)
     }
     
     # return array with required dimensions
@@ -178,19 +201,18 @@ as.transition_function <- function (transition_function) {
   as_class(transition_function, "transition_function", "function")
 }
 
-get_R <- function (transition_matrix, n_stages = ncol(transition_matrix), initial_stages = NULL, tolerance = 0.001, max_iter = 100) {
+get_R <- function (transition_matrix, n_stages = ncol(transition_matrix), stable_age = NULL, tolerance = 0.001, max_iter = 100) {
   
-  if (is.null(initial_stages)) {
-    initial_stages <- rep(1, n_stages)
+  if (is.null(stable_age)) {
+    stable_age <- rep(1, n_stages)
   }
   
-  old_stages <- initial_stages
+  old_stages <- stable_age
   converged <- FALSE
   iter <- 0
-  old_Rs <- rep(0, n_stages)
-  
+  old_Rs <- rep(.Machine$double.eps, n_stages)
+
   while (!converged & iter < max_iter) {
-    
     new_stages <- transition_matrix %*% old_stages
     Rs <- new_stages / old_stages
     errors <- abs(1 - (Rs / old_Rs))
@@ -198,7 +220,6 @@ get_R <- function (transition_matrix, n_stages = ncol(transition_matrix), initia
     old_Rs <- Rs
     old_stages <- new_stages
     iter <- iter + 1
-    
   }
   
   warn_once(!converged,
@@ -230,15 +251,19 @@ apply_m <- function (m, transition_matrix, mask = NULL) {
 }
 
 # find a value of m with which to modify transition_matrix, to get to this target value of R
-find_m <- function(R_target, transition_matrix, mask = NULL, n_stages = ncol(transition_matrix), initial_stages = NULL) {
+find_m <- function(R_target, transition_matrix, mask = NULL, n_stages = ncol(transition_matrix), stable_age = NULL, init_Rmax_null = init_Rmax_null) {
   
-  obj <- function (m, R_target, transition_matrix, mask = NULL, n_stages = ncol(transition_matrix), initial_stages = NULL) {
+  obj <- function (m, R_target, transition_matrix, mask = NULL, n_stages = ncol(transition_matrix), stable_age = NULL) {
     new_transition_matrix <- apply_m(m, transition_matrix, mask)
-    R_current <- get_R(new_transition_matrix, n_stages = n_stages, initial_stages = initial_stages)
+    R_current <- get_R(new_transition_matrix, n_stages = n_stages, stable_age = stable_age)
     (R_current - R_target) ^ 2
   } 
   
-  out <- stats::optimise(obj, c(0, 1), R_target, transition_matrix, mask, n_stages = n_stages, initial_stages)
+  if (init_Rmax_null) {
+    out <- stats::optimise(obj, c(0, 1.1), R_target, transition_matrix, mask, n_stages = n_stages, stable_age)
+  } else {
+    out <- stats::optimise(obj, c(0, 5), R_target, transition_matrix, mask, n_stages = n_stages, stable_age)
+  }
   out$minimum
   
 }
@@ -248,20 +273,22 @@ density_modified_transition <- function (N,
                                          transition_matrix,
                                          n_stages = ncol(transition_matrix),
                                          R_max = NULL,
-                                         initial_stages = NULL,
+                                         stable_age = NULL,
                                          mask = NULL) {
-  
+
   # if the optimal R isn't provided, recalculate it (ideally pre-calculate it to
   # save computation)
-  if (is.null(R_max)) {
-    R_max <- get_R(transition_matrix, n_stages = n_stages, initial_stages = initial_stages)
+  init_Rmax_null <- is.null(R_max)
+  
+  if (init_Rmax_null) {
+    R_max <- get_R(transition_matrix, n_stages = n_stages, stable_age = stable_age)
   }
   
   # get the target value of R, for this degree of over/under-population
   R_target <- ideal_R(K, N, R_max)
   
   # find a value of m with which to modify transition_matrix, to get to this target value of R
-  m <- find_m(R_target, transition_matrix, mask, initial_stages = initial_stages)
+  m <- find_m(R_target, transition_matrix, mask, stable_age = stable_age, init_Rmax_null = init_Rmax_null)
   
   # multiply m by the relevant bits of transition_matrix
   transition_matrix_new <- apply_m(m, transition_matrix, mask)

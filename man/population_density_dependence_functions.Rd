@@ -2,18 +2,14 @@
 % Please edit documentation in R/population_density_dependence-functions.R
 \name{population_density_dependence_functions}
 \alias{population_density_dependence_functions}
-\alias{ceiling_density}
 \title{How the population responds to density dependence in a landscape.}
-\usage{
-ceiling_density(stages = NULL)
-}
-\arguments{
-\item{stages}{which life-stages contribute to density dependence - default is all}
-}
 \description{
-Pre-defined or custom functions to define population density dependence (e.g. ceiling) during a simulation.
+Pre-defined or custom functions to define population density dependence (e.g. ceiling)
+during a simulation. Please see the tutorial vignette titled "Creating custom *steps*
+functions" for information on how to write custom functions for use in simulations.
 }
-\examples{
-
-test_pop_dd <- ceiling_density()
+\seealso{
+\itemize{
+  \item{\link[steps]{ceiling_density} to cap populations at carrying capacities}
+  }
 }

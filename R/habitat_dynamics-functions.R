@@ -4,41 +4,61 @@
 #' is used) during a simulation.
 #'
 #' @name habitat_dynamics_functions
+#' 
+#' @seealso
+#' \itemize{
+#'   \item{\link[steps]{disturbance} to modify the suitability of a landscape with user provided
+#'   spatially-explicit layers}
+#'   \item{\link[steps]{fire_effects}}
+#'   }
+NULL
+
+#' Disturbance
+#' 
+#' Modifies the landscape by multiplying habitat suitability values by a sum of previous
+#' disturbances. Since disturbances can act in a single timestep, or have lasting effects,
+#' the user can specify an 'effect time' of disturbances.
 #'
-#' @param disturbance_layers the name(s) of spatial layer(s) in the landscape object with disturbances used
+#' @param disturbance_layers the name of spatial layer(s) in the landscape object with disturbances used
 #'   to alter the habitat object for each timestep (number of layers must match the intended timesteps)
 #' @param effect_time the number of timesteps that the disturbance layer will act on the habitat object
-#' @param fire_layers the name(s) of spatial layer(s) in the landscape object with fire disturbances used
-#'   to alter the habitat object for each timestep (number of layers must match the intended timesteps)
-#' @param lag the number of timesteps that the fire layer will act on the habitat object
-#' @param regeneration_function a function that determines how fast the landscape will regenerate after a
-#'   fire event
-#'
-#' @examples
-#' 
-#' library(steps)
-#' 
-#' @rdname habitat_dynamics_functions
+#'   (e.g. '3' will combine the effects of previous two timesteps to increase the overall effect) - the
+#'   default is 1.
 #'
 #' @export
 #' 
 #' @examples
+#'
+#' # Road building (stored in the landscape object and called "roads") acts on the landscape
+#' # each year.
 #' 
-#' # Use the disturbance function to modify the habitat using spatial
-#' # layers (stored in the landscape object and called "logging"):
+#' \dontrun{
+#' road_effect <- disturbance(disturbance_layers = "roads", effect_time = 1)
 #' 
-#' logging <- disturbance(disturbance_layers = "logging",
-#'                     effect_time = 1)
+#' ls <- landscape(population = egk_pop, suitability = egk_hab, "roads" = egk_road)
+#' 
+#' pd <- population_dynamics(change = growth(egk_mat))
+#' 
+#' sim <- simulation(landscape = ls,
+#'            population_dynamics = pd,
+#'            habitat_dynamics = list(road_effect),
+#'            timesteps = 20)
+#'            
+#' plot(sim, object = "suitability", type = "raster", timesteps = 1:9)
+#' }
 
 disturbance <- function (disturbance_layers, effect_time = 1) {
   
   dist_fun <- function (landscape, timestep) {
     
-    if (raster::nlayers(landscape$suitability) > 1) original_habitat <- landscape$suitability[[timestep]]
-    else original_habitat <- landscape$suitability
+    if (raster::nlayers(landscape$suitability) > 1) {
+      original_habitat <- landscape$suitability[[timestep]]
+    } else {
+      original_habitat <- landscape$suitability
+    }
     
     if (raster::nlayers(landscape[[disturbance_layers]]) < timestep ) {
-      stop("The number of disturbance layers must match the number of timesteps in the experiment")
+      stop("The number of disturbance layers must match the number of timesteps in the simulation")
     }
     
     # replace NA values with zeros
@@ -47,10 +67,13 @@ disturbance <- function (disturbance_layers, effect_time = 1) {
     modified_habitat <- original_habitat * raster::overlay(landscape[[disturbance_layers]][[utils::tail(seq_len(timestep),
                                                                                                         effect_time)]],
                                                            fun = prod)
-    names(modified_habitat) <- "Habitat"
+    names(modified_habitat) <- paste0("Habitat_", timestep)
 
-    if (raster::nlayers(landscape$suitability) > 1) landscape$suitability[[timestep]] <- modified_habitat
-    else landscape$suitability <- modified_habitat
+    if (raster::nlayers(landscape$suitability) > 1) {
+      landscape$suitability[[timestep]] <- modified_habitat
+    } else {
+      landscape$suitability <- modified_habitat
+    }
     
     landscape
     
@@ -60,22 +83,47 @@ disturbance <- function (disturbance_layers, effect_time = 1) {
   
 }
 
-#' @rdname habitat_dynamics_functions
+#' Fire effects with regeneration
+#' 
+#' Modifies the landscape by multiplying habitat suitability values by a weighted sum of previous
+#' fire intensities based on a user specified regeneration function. By default, the regenerative
+#' function is an inverse linear relationship to time, however, this function can be replaced with a response
+#' that takes into account other factors of habitat restoration (e.g. growth/re-growth curves of vegetation).
+#'
+#' @param fire_layers the name(s) of spatial layer(s) in the landscape object with fire disturbances used
+#'   to alter the habitat object for each timestep (number of layers must match the intended timesteps)
+#' @param effect_time the number of timesteps that the fire layer will act on the habitat object
+#' @param regeneration_function a function that determines how fast the landscape will regenerate after a
+#'   fire event
 #'
 #' @export
 #' 
 #' @examples
+#'
+#' # Fire (stored in the landscape object and called "fires") acts on the landscape for
+#' #five years with an exponentially decaying intensity.
 #' 
-#' # Use the fire_effects function to modify the habitat using spatial
-#' # fire layers (stored in the landscape object and called "fires")
-#' # and a regeneration function:
+#' \dontrun{
+#' regen <- function (time) {-exp(time)}
 #' 
-#' fire <- fire_effects(fire_layers = "fires",
-#'                     lag = 5,
-#'                     regeneration_function = function (time) {-time})
+#' plot(1:5, regen(1:5), type = "l")
+#' 
+#' fire <- fire_effects(fire_layers = "fires", effect_time = 5, regeneration_function = regen)
+#' 
+#' ls <- landscape(population = egk_pop, suitability = egk_hab, "fires" = egk_fire)
+#' 
+#' pd <- population_dynamics(change = growth(egk_mat))
+#' 
+#' sim <- simulation(landscape = ls,
+#'            population_dynamics = pd,
+#'            habitat_dynamics = list(fire),
+#'            timesteps = 20)
+#'            
+#' plot(sim, object = "suitability", type = "raster", timesteps = 1:9)
+#' }
 
 fire_effects <- function (fire_layers,
-                          lag = 3,
+                          effect_time = 3,
                           regeneration_function = function (time) {-time}) {
   
   dist_fun <- function (landscape, timestep) {
@@ -85,18 +133,21 @@ fire_effects <- function (fire_layers,
            Please check that you have not provided a raster stack as a suitability component of a landscape object.")
     }
     
-    if (is.null(steps_stash$orig_suitability)) original_habitat <- steps_stash$orig_suitability <- landscape$suitability
-    else original_habitat <- steps_stash$orig_suitability
+    if (is.null(steps_stash$orig_suitability)) {
+      original_habitat <- steps_stash$orig_suitability <- landscape$suitability
+    } else {
+      original_habitat <- steps_stash$orig_suitability
+    }
     
     if (raster::nlayers(landscape[[fire_layers]]) < timestep ) {
-      stop("The number of disturbance layers must match the number of timesteps in the experiment")
+      stop("The number of fire layers must match the number of timesteps in the simulation")
     }
     
     # replace NA values with ones
     landscape[[fire_layers]][is.na(landscape[[fire_layers]])] <- 1
     
     # lags  
-    years_since_fire <- c(0, seq_len(lag))
+    years_since_fire <- c(0, seq_len(effect_time))
     
     # fire weights
     relative_regeneration <- regeneration_function(years_since_fire)

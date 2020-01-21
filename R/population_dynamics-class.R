@@ -10,7 +10,11 @@
 #' used to construct an object with several population dynamics functions and
 #' their associated parameters. These functions specify how the population in
 #' the landscape object will be modified throughout a simulation. The dynamics
-#' can be executed in any order that is specified by the user.
+#' can be executed in any order that is specified by the user. It is cautioned
+#' that the order of dynamics will have implications depending on whether the
+#' user has assumed a post-breeding or pre-breeding census in the transition
+#' matrix. For more information on this, please refer to Kendall et al, (2019)
+#' \emph{Ecological Applications}.
 #'
 #' @rdname population_dynamics
 #'
@@ -26,8 +30,7 @@
 #' @param dynamics_order the order in which the population dynamics should be executed
 #'  on the landscape object - default is "change" -> "dispersal" -> "modification" -> "density_dependence". 
 #'  Note, if population dynamics are reordered, all dynamics must be listed in \code{dynamics_order}.
-#' @param x a population_dynamics object
-#' @param ... further arguments passed to or from other methods
+#'
 #'
 #' @return An object of class \code{population_dynamics}
 #' 
@@ -35,7 +38,15 @@
 #'
 #' @examples
 #' 
-#' test_pop_dynamics <- population_dynamics()
+#' # Example of setting up population dynamics to only use a population change function.
+#' 
+#' \dontrun{
+#' ls <- landscape(population = egk_pop, suitability = NULL, carrying_capacity = NULL)
+#' 
+#' pd <- population_dynamics(change = growth(egk_mat))
+#' 
+#' simulation(landscape = ls, population_dynamics = pd, habitat_dynamics = NULL, timesteps = 20)
+#' }
 
 population_dynamics <- function (change = NULL,
                                  dispersal = NULL,
@@ -78,16 +89,6 @@ population_dynamics <- function (change = NULL,
   
 }
 
-
-#' @rdname population_dynamics
-#'
-#' @export
-#' 
-#' @examples
-#'
-#' # Test if object is of the type 'population dynamics'
-#' is.population_dynamics(test_pop_dynamics)
-
 is.population_dynamics <- function (x) {
   inherits(x, 'population_dynamics')
 }
@@ -99,7 +100,7 @@ is.population_dynamics <- function (x) {
 # #' @examples
 # #'
 # #' # Print details about the 'population_dynamics' object 
-# #' print(test_pop_dynamics)
+# #' print(pd)
 # 
 # print.population_dynamics <- function (x, ...) {
 #   cat("This is a population_dynamics object.")

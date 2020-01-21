@@ -1,5 +1,4 @@
-#' @title Simulate population trajectories over space and time with custom
-#' dynamic functions.
+#' @title Simulate population trajectories over space and time with dynamic functions.
 #' @name steps
 #' @docType package
 #' @description Simulating shifts in species populations is an important
@@ -15,6 +14,7 @@
 #' dynamics functions contained in a \link[steps]{population_dynamics} object.
 #' \link[steps]{habitat_dynamics_functions} can also be added to the simulation to
 #' modify the habitat during a simulation.
+NULL
 
 steps_stash <- new.env()
 
@@ -23,3 +23,17 @@ flush_stash <- function() {
     steps_stash[[name]] <- NULL
   }
 }
+
+# replace the values in the steps stash with those in this new one (used to pass the stash onto parallel workers)
+replace_stash <- function(new_stash) {
+  
+  # flush the old one
+  flush_stash()
+  
+  for (name in names(new_stash)) {
+    steps_stash[[name]] <- new_stash[[name]]
+  }
+  
+}
+
+options(future.globals.maxSize= 1000*1024^2)

@@ -18,7 +18,6 @@
 #' @param carrying_capacity an optional raster layer specifying carrying capacity
 #'  values for all cells in a landscape or a function defining how carrying capacity
 #'  is determined by habitat suitability.
-#' @param x a landscape object.
 #' @param ... named raster objects representing different aspects of the landscape
 #'  used to modify the landscape object in a simulation. Note, this is intended to
 #'  store objects that are accessed by dynamic functions and used to modify the
@@ -30,11 +29,15 @@
 #'
 #' @examples
 #' 
-#' library(steps)
-#' library(raster)
+#' # Example of setting up a landscape object.
 #' 
-#' # Construct the landscape object
-#' egk_ls <- landscape(population = egk_pop, suitability = egk_hab, carrying_capacity = egk_k)
+#' \dontrun{
+#' ls <- landscape(population = egk_pop, suitability = egk_hab, carrying_capacity = egk_k)
+#' 
+#' pd <- population_dynamics(change = growth(egk_mat))
+#' 
+#' simulation(landscape = ls, population_dynamics = pd, habitat_dynamics = NULL, timesteps = 20)
+#' }
 
 landscape <- function (population, suitability = NULL, carrying_capacity = NULL, ...) {
   if(is.null(population)) stop("Initial population rasters must be provided for the landscape object.")
@@ -57,15 +60,6 @@ landscape <- function (population, suitability = NULL, carrying_capacity = NULL,
   as.landscape(landscape)
 }
 
-#' @rdname landscape
-#'
-#' @export
-#' 
-#' @examples
-#'
-#' # Test if object is of the type 'landscape'
-#' is.landscape(egk_ls)
-
 is.landscape <- function (x) {
   inherits(x, 'landscape')
 }
@@ -77,7 +71,7 @@ is.landscape <- function (x) {
 # #' @examples
 # #'
 # #' # Print information about the 'landscape' object
-# #' print(egk_ls)
+# #' print(ls)
 # 
 # print.landscape <- function (x, ...) {
 # 
@@ -107,8 +101,21 @@ check_raster_matches_population <- function (raster, population) {
 }
 
 check_raster_na_matches <- function (raster, population) {
-  ras_na <- which(is.na(raster::getValues(raster[[1]])))
+  
   pop_na <- which(is.na(raster::getValues(population[[1]])))
-  if (!identical(ras_na, pop_na)) stop("Landscape rasters do not have matching NA cells. ",
-                                       "This must be corrected before running a simulation.")
+  suit_layers <- raster::nlayers(raster)
+  
+  if (suit_layers > 1) {
+    for (i in seq_len(suit_layers)) {
+      ras_na <- which(is.na(raster::getValues(raster[[i]])))
+      if (!identical(ras_na, pop_na)) stop(paste0("Landscape suitability raster for timestep ",
+                                           i,
+                                           " does not have matching NA cells. ",
+                                           "This must be corrected before running a simulation."))
+    }
+  } else { 
+    ras_na <- which(is.na(raster::getValues(raster[[1]])))
+    if (!identical(ras_na, pop_na)) stop("Landscape rasters do not have matching NA cells. ",
+                                         "This must be corrected before running a simulation.")
+  }
 }
