@@ -861,6 +861,16 @@ simulate <- function (i, landscape, population_dynamics, habitat_dynamics, times
       landscape <- dynamic_function(landscape, timestep)
     }
     
+    # 22.01.20 - store carrying capacity function
+    is_k_function <- is.function(landscape$carrying_capacity)
+    
+    if (is_k_function) {
+      k_fun <- landscape$carrying_capacity
+    }
+    
+    # 22.01.20 - Added to only transform carrying capacity raster once at each timestep
+    landscape$carrying_capacity <- get_carrying_capacity(landscape, timestep)
+    
     landscape <- population_dynamics(landscape, timestep)
     
     landscape_out <- landscape
@@ -871,18 +881,18 @@ simulate <- function (i, landscape, population_dynamics, habitat_dynamics, times
     # loop through names of objects and check if not null and greater than length one
     for (name in landscape_names) {
       
-      if (name == "carrying_capacity" && !is.null(landscape_out[[name]]) && is.function(landscape_out[[name]])) {
+      # 22.01.20 - # if (name == "carrying_capacity" && !is.null(landscape_out[[name]]) && is.function(landscape_out[[name]])) {
         
-        landscape_out$carrying_capacity <- get_carrying_capacity(landscape, timestep)
+      # 22.01.20 - #   landscape_out$carrying_capacity <- get_carrying_capacity(landscape, timestep)
         
-      } else {
+      # 22.01.20 - # } else {
         
         if (name != "population" && !is.function(landscape_out[[name]]) &&
             !is.null(landscape_out[[name]]) && raster::nlayers(landscape_out[[name]]) > 1) {
           
           landscape_out[[name]] <- landscape_out[[name]][[timestep]]
           
-        }
+        # 22.01.20 - # }
       }
     }
     
@@ -895,6 +905,11 @@ simulate <- function (i, landscape, population_dynamics, habitat_dynamics, times
     
     output_landscapes[[timestep]] <- landscape_out
     
+    # 22.01.20 - return carrying capacity function
+    if (is_k_function) {
+      landscape$carrying_capacity <- k_fun
+    }
+
     if (!is.null(steps_stash$dispersal_stats)) {
       n_stages <- length(steps_stash$dispersal_stats)
       n_stages_disperse <- which(unlist(lapply(steps_stash$dispersal_stats, function(x) !is.null(x))) == TRUE)
