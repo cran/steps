@@ -16,7 +16,7 @@ NULL
 #' Population growth
 #' 
 #' This function applies negative or positive growth to the population using matrix
-#' multiplication. Stochasticty can be added to cell-based transition matrices or globally.
+#' multiplication. Stochasticity can be added to cell-based transition matrices or globally.
 #' Users can also specify a built-in or custom function to modify the transition matrices
 #' throughout a simulation. Please see the tutorial vignette titled "Creating custom
 #' *steps* functions" for information on how to write custom functions for use in simulations.
@@ -24,10 +24,12 @@ NULL
 #' @param transition_matrix A symmetrical age-based (Leslie) or stage-based (Lefkovitch)
 #'   population structure matrix.
 #' @param global_stochasticity,local_stochasticity Either scalar values or
-#'   matrices (with the same dimension as \code{transition_matrix}) specifying
-#'   the variability (in standard deviations) in the transition matrix either for
-#'   populations in all grid cells (\code{global_stochasticity}) or for each
-#'   grid cell population separately (\code{local_stochasticity})
+#' matrices (with the same dimension as \code{transition_matrix}) specifying
+#' the variability in the transition matrix either for populations in all grid
+#' cells (\code{global_stochasticity}) or for each grid cell population
+#' separately (\code{local_stochasticity}). Values supplied here are the
+#' standard deviation of a truncated normal distribution where the mean is the
+#' value supplied in the transition matrix.
 #' @param transition_function A function to specify or modify life-stage transitions
 #'   at each timestep. See \link[steps]{transition_function}.
 #' @param transition_order Order of transitions performed in growth function. This behaviour
@@ -37,6 +39,8 @@ NULL
 #'   The final population is the sum of these. Users should be cautious of specifying
 #'   "survival" to be performed first as typically survival of reproductive stages will already
 #'   be accounted for in the fecundity values of the transition matrix.
+#' @param two_sex Does the transition matrix include life stages for two sexes (i.e. male and
+#'   female)? Default is FALSE which assumes a single sex matrix (e.g. females only).
 #' 
 #' @export
 #' 
@@ -59,7 +63,8 @@ growth <- function (transition_matrix,
                     global_stochasticity = 0,
                     local_stochasticity = 0,
                     transition_function = NULL,
-                    transition_order = c("fecundity", "survival")) {
+                    transition_order = c("fecundity", "survival"),
+                    two_sex = FALSE) { # updated 23.10.20
   
   transition_order <- match.arg(transition_order)
   is_function <- inherits(transition_function, "function")
@@ -100,6 +105,11 @@ growth <- function (transition_matrix,
   
   idx <- which(transition_matrix != 0)
   is_recruitment <- upper.tri(transition_matrix)[idx]
+  if(two_sex == TRUE) { # added 23.10.20
+    mat <- is.na(transition_matrix)
+    mat[c(1, (nrow(transition_matrix) / 2) + 1), ] <- TRUE
+    is_recruitment <- mat[idx]
+  }
   upper <- ifelse(is_recruitment, Inf, 1)
   vals <- transition_matrix[idx]
   dim <- nrow(transition_matrix)
@@ -159,26 +169,30 @@ growth <- function (transition_matrix,
       
       total_pop <- rowSums(population)
       has_pop <- total_pop > 0
-
-      # browser()
+      
+      # if two-sex model, assumes that matrix is setup in a way that the fecundity values are
+      # in the first, and half the row count + 1, rows - added 23.10.20
+      fec_rows <- 1
+      if (two_sex) fec_rows <- c(1, (nrow(transition_matrix) / 2) + 1)
       
       if (transition_order == "fecundity" && sum(has_pop) >= 1) {
         # first step - perform fecundity to add individuals to the populations
-        new_population <- add_offspring(population[has_pop, ], transition_array[ , , has_pop])
+        new_population <- add_offspring(population[has_pop, ], transition_array[ , , has_pop], fec_rows) # updated 23.10.20
         # second step - perform survival on new population
-        surv_population <- surviving_population(population[has_pop, ], transition_array[ , , has_pop])
+        surv_population <- surviving_population(population[has_pop, ], transition_array[ , , has_pop], fec_rows) # updated 23.10.20
         # add new and surviving populations
-        surv_population[ , 1] <- surv_population[ , 1] + new_population
+        surv_population[ , fec_rows] <- surv_population[ , fec_rows] + new_population
         population[has_pop, ] <- surv_population
+        
       }
       
       if (transition_order == "survival" && sum(has_pop) >= 1) {
         # first step - perform survival on population
-        surv_population <- surviving_population(population[has_pop, ], transition_array[ , , has_pop])
+        surv_population <- surviving_population(population[has_pop, ], transition_array[ , , has_pop], fec_rows) # updated 23.10.20
         # second step - perform fecundity to add individuals to the populations
-        new_population <- add_offspring(surv_population, transition_array[ , , has_pop])
+        new_population <- add_offspring(surv_population, transition_array[ , , has_pop], fec_rows) # updated 23.10.20
         # add new and surviving populations
-        surv_population[ , 1] <- surv_population[ , 1] + new_population
+        surv_population[ , fec_rows] <- surv_population[ , fec_rows] + new_population
         population[has_pop, ] <- surv_population
       }
       
@@ -189,7 +203,7 @@ growth <- function (transition_matrix,
                            function(x) transition_array[ , , x] %*% matrix(population[x, ]))
       
       population <- t(population)
-
+      
     }
     
     # put back in the raster
@@ -214,44 +228,46 @@ as.population_growth <- function (simple_growth) {
   as_class(simple_growth, "population_growth", "function")
 }
 
-add_offspring <- function (population, transition_array) {
-
+add_offspring <- function (population, transition_array, fec_rows) { # updated 23.10.20
+  
   pops <- population
   
-  # get fecundities for all eligible stages
-  # N.B. assumes we can only recruit into the first stage!
-  if (class(transition_array) == "matrix") {
-    fecundities <- t(transition_array[1, ])
-  } else {
-    fecundities <- t(transition_array[1, , ])
-  }
-
+  # updated 23.10.20
+  new_offspring <- sapply(fec_rows,
+                          function(x) {
+                            # get fecundities for all eligible stages
+                            if (class(transition_array) == "matrix") {
+                              fecundities <- t(transition_array[x, ])
+                            } else {
+                              fecundities <- t(transition_array[x, , ])
+                            }
+                            
+                            # get expected number, then do a poisson draw about this
+                            expected_offspring <- fecundities * pops
+                            new_offspring_stochastic <- expected_offspring
+                            new_offspring_stochastic[] <- stats::rpois(length(expected_offspring), expected_offspring[])
+                            
+                            # sum stage 1s created by all other stages
+                            rowSums(new_offspring_stochastic)
+                          })
   
-  # get expected number, then do a poisson draw about this
-  expected_offspring <- fecundities * pops
-  new_offspring_stochastic <- expected_offspring
-  new_offspring_stochastic[] <- stats::rpois(length(expected_offspring), expected_offspring[])
-  
-  # sum stage 1s created by all other stages
-  new_offspring <- rowSums(new_offspring_stochastic)
-  return(new_offspring)
+  return(new_offspring) # updated 23.10.20
 }
 
-surviving_population <- function (population, transition_array) {
+surviving_population <- function (population, transition_array, fec_rows) { # updated 23.10.20
   survival_array <- transition_array
   
   if (class(transition_array) == "matrix") {
-    survival_array[1, ] <- 0
+    survival_array[fec_rows, ] <- 0
   } else {
-    survival_array[1, , ] <- 0
+    survival_array[fec_rows, , ] <- 0
   }
-
+  
   if(inherits(population, "numeric")) {
     n_stage <- length(population)
   } else {
     n_stage <- ncol(population)
   }
-   
   
   # loop through stages, getting the stages to which they move (if they survive)
   if(inherits(population, "numeric")) {
@@ -259,7 +275,7 @@ surviving_population <- function (population, transition_array) {
   } else {
     survival_stochastic <- matrix(0, nrow(population), n_stage)
   }
-
+  
   for (stage in seq_len(n_stage)) {
     
     # get the populations that have any individuals of this stage
