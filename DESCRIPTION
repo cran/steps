@@ -1,7 +1,7 @@
 Package: steps
 Type: Package
 Title: Spatially- and Temporally-Explicit Population Simulator
-Version: 1.2.0
+Version: 1.2.1
 Date: 2021-02-15
 Authors@R: c(
   person("Casey", "Visintin", email = "casey.visintin@unimelb.edu.au",
@@ -26,10 +26,10 @@ VignetteBuilder: knitr
 Encoding: UTF-8
 LazyData: true
 NeedsCompilation: yes
-Packaged: 2021-02-17 02:28:35 UTC; casey
+Packaged: 2021-03-02 20:49:37 UTC; casey
 Author: Casey Visintin [aut, cre],
   Nick Golding [ctb],
   Skipton Woolley [ctb],
   John Baumgartner [ctb]
 Repository: CRAN
-Date/Publication: 2021-02-24 16:50:03 UTC
+Date/Publication: 2021-03-03 09:20:10 UTC

@@ -1,9 +1,9 @@
 ## ----setup, include=FALSE-----------------------------------------------------
 knitr::opts_chunk$set(
-  dpi = 300,
+  dpi = 150,
   fig.width = 7,
   out.width = "100%",
-  cache = TRUE
+  cache = FALSE
 )
 
 ## ---- message = FALSE---------------------------------------------------------
