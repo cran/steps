@@ -85,19 +85,19 @@ egk_results <- simulation(landscape = egk_landscape,
                           verbose = FALSE)
 
 ## ---- message = FALSE, fig.align = "center"-----------------------------------
-plot(egk_results)
+plot_pop_trend(egk_results)
 
 ## ---- message = FALSE, fig.align = "center", fig.width = 3, fig.height = 4, out.width = "33%"----
-plot(egk_results, stage = 0)
+plot_pop_trend(egk_results, stage = 0)
 
 ## ---- message = FALSE, fig.align = "center", fig.width = 3, fig.height = 4, out.width = "33%"----
-plot(egk_results, stage = 2)
+plot_pop_trend(egk_results, stage = 2)
 
 ## ---- message = FALSE, fig.align = "center", fig.show='hold'------------------
-plot(egk_results, type = "raster", stage = 2, timesteps = c(1, 10, 20), panels = c(3, 1))
+plot_pop_spatial(egk_results, stage = 2, timesteps = c(1, 10, 20))
 
 ## ---- message = FALSE, eval = FALSE-------------------------------------------
-#  plot(egk_results, type = "raster", stage = 2, timesteps = c(1, 10, 20), animate = TRUE)
+#  plot(egk_results)
 
 ## ---- message = FALSE, progress = FALSE, eval = FALSE-------------------------
 #  plan(multisession, workers = 3) # This is how we specify to simulate
@@ -112,7 +112,7 @@ plot(egk_results, type = "raster", stage = 2, timesteps = c(1, 10, 20), panels =
 #  
 
 ## ---- message = FALSE, fig.align = "center"-----------------------------------
-plot(egk_results[1], type = "raster", stage = 0, timesteps = c(1, 10, 20), panels = c(3, 1))
+plot_pop_spatial(egk_results, replicate = 1, timesteps = c(1, 10, 20))
 
 ## ---- message = FALSE, progress = FALSE, fig.align = "center"-----------------
 egk_pop_dynamics <- population_dynamics(change = growth(transition_matrix = egk_mat,
@@ -129,7 +129,7 @@ egk_results <- simulation(landscape = egk_landscape,
                           replicates = 3,
                           verbose = FALSE)
 
-plot(egk_results)
+plot_pop_trend(egk_results)
 
 ## ---- message = FALSE, progress = FALSE, fig.align = "center"-----------------
 plan(sequential)
@@ -154,7 +154,7 @@ egk_results <- simulation(landscape = egk_landscape,
                           replicates = 3,
                           verbose = FALSE)
 
-plot(egk_results)
+plot_pop_trend(egk_results)
 
 ## ---- message = FALSE, progress = FALSE, fig.align = "center"-----------------
 deterministic_transitions <- function(spatial_object) {
@@ -204,7 +204,7 @@ egk_results <- simulation(landscape = egk_landscape,
                           timesteps = 20,
                           verbose = FALSE)
 
-plot(egk_results)
+plot_pop_trend(egk_results)
 
 ## ---- message = FALSE, progress = FALSE, fig.align = "center", eval = FALSE----
 #  egk_landscape <- landscape(population = egk_pop,
@@ -271,7 +271,7 @@ egk_results <- simulation(landscape = egk_landscape,
                           verbose = FALSE)
 
 ## ---- message = FALSE, fig.align = "center"-----------------------------------
-plot(egk_results[1], type = "raster", stage = 3, timesteps = c(1, 10, 20), panels = c(3, 1))
+plot_pop_spatial(egk_results, timesteps = c(1, 10, 20))
 
 ## ---- message = FALSE, progress = FALSE, fig.align = "center", eval = FALSE----
 #  egk_landscape <- landscape(population = egk_pop,
@@ -368,13 +368,13 @@ egk_results <- simulation(landscape = egk_landscape,
                           replicates = 3,
                           verbose = FALSE)
 
-plot(egk_results)
+plot_pop_trend(egk_results)
 
 ## ---- message = FALSE, fig.align = "center"-----------------------------------
-plot(egk_results[1], type = "raster", stage = 3, timesteps = c(1, 10, 20), panels = c(3, 1))
+plot_pop_spatial(egk_results, stage = 3, timesteps = c(1, 10, 20))
 
 ## ---- message = FALSE, fig.align = "center"-----------------------------------
-plot(egk_results[1], object = "suitability", timesteps = c(1, 10, 20), panels = c(3, 1))
+plot_hab_spatial(egk_results, timesteps = c(1, 10, 20))
 
 ## ---- message = FALSE, results='hide', eval = FALSE---------------------------
 #  carrying_cap_fun <- function (landscape, timestep) {

@@ -1,35 +1,34 @@
 Package: steps
 Type: Package
 Title: Spatially- and Temporally-Explicit Population Simulator
-Version: 1.2.1
-Date: 2021-02-15
+Version: 1.3.0
+Date: 2022-10-03
 Authors@R: c(
   person("Casey", "Visintin", email = "casey.visintin@unimelb.edu.au",
-  role=c("aut", "cre")),
+  role=c("aut", "cre"), comment = c(ORCID = "0000-0003-2245-8998")),
   person("Nick", "Golding", email = "nick.golding.research@gmail.com",
   role = "ctb"),
   person("Skipton", "Woolley", email = "skip.woolley@csiro.au",
-  role = "ctb"),
-  person("John", "Baumgartner", email = "john.baumgartner@mq.edu.au",
   role = "ctb")
   )
 Maintainer: Casey Visintin <casey.visintin@unimelb.edu.au>
-Description: Software to simulate population change across space and time.
+Description: Software to simulate population change across space and time. Visintin et al. (2020) <doi:10.1111/2041-210X.13354>.
+BugReports: https://github.com/steps-dev/steps/issues
+URL: https://github.com/steps-dev/steps
 Depends: R (>= 3.4.0)
 License: GPL (>= 2)
 Imports: Rcpp, raster, future, future.apply, rasterVis, viridisLite,
         memuse
 LinkingTo: Rcpp
-RoxygenNote: 7.1.1
+RoxygenNote: 7.2.1
 Suggests: testthat, fields, knitr, rmarkdown, foreach
-VignetteBuilder: knitr
+VignetteBuilder: knitr, rmarkdown
 Encoding: UTF-8
 LazyData: true
 NeedsCompilation: yes
-Packaged: 2021-03-02 20:49:37 UTC; casey
-Author: Casey Visintin [aut, cre],
+Packaged: 2022-10-04 21:50:04 UTC; casey
+Author: Casey Visintin [aut, cre] (<https://orcid.org/0000-0003-2245-8998>),
   Nick Golding [ctb],
-  Skipton Woolley [ctb],
-  John Baumgartner [ctb]
+  Skipton Woolley [ctb]
 Repository: CRAN
-Date/Publication: 2021-03-03 09:20:10 UTC
+Date/Publication: 2022-10-04 23:30:02 UTC
